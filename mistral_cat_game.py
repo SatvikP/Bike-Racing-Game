@@ -74,7 +74,6 @@ class SerialReader:
         self.baud_rate = baud_rate
         self.serial_conn = None
         self.jumping = False
-        self.envelope = 0
         self.connected = False
         
     def auto_detect_port(self):
@@ -142,20 +141,17 @@ class SerialReader:
                 if not line:
                     continue
                 
-                # Skip debug messages like "JUMP!" or "Ready!"
-                if not line.startswith("Mistral") and not line.startswith("Flex") and not line.startswith("JUMP"):
-                    parts = line.split(',')
-                    if len(parts) >= 2:
-                        self.jumping = parts[0] == "1"
-                        try:
-                            self.envelope = int(parts[1])
-                        except ValueError:
-                            pass
-                        return True
-                    elif len(parts) == 1:
-                        # Just jump state
-                        self.jumping = parts[0] == "1"
-                        return True
+                # Skip debug messages like "Ready!"
+                if line.startswith("Mistral") or line.startswith("Flex") or line.startswith("Ready"):
+                    continue
+                
+                # Arduino sends "1" for jump, "0" for no jump
+                if line == "1":
+                    self.jumping = True
+                    return True
+                elif line == "0":
+                    self.jumping = False
+                    return True
         except (serial.SerialException, OSError):
             self.connected = False
         
@@ -474,12 +470,7 @@ class MistralCatGame:
             f"{'(' + serial_reader.port + ')' if serial_reader.port and connected else ''}",
             True, GREEN if connected else RED
         )
-        screen.blit(status_text, (SCREEN_WIDTH - 250, SCREEN_HEIGHT - 25))
-        
-        # EMG power meter
-        if connected:
-            power_text = self.small_font.render(f"EMG: {serial_reader.envelope}", True, YELLOW)
-            screen.blit(power_text, (SCREEN_WIDTH - 250, SCREEN_HEIGHT - 50))
+        screen.blit(status_text, (SCREEN_WIDTH - 200, SCREEN_HEIGHT - 25))
     
     def render(self, screen, connected):
         """Render the game."""

@@ -1,6 +1,7 @@
 // Mistral Cat Obstacle Game - Single Channel EMG (A0 only)
-// Based on Muscle BioAmp Shield example
-// https://github.com/upsidedownlabs/DIY-Muscle-BioAmp-Shield
+// Based on BioAmp EXG Pill EMGScrolling example
+// https://github.com/upsidedownlabs/BioAmp-EXG-Pill
+// https://github.com/upsidedownlabs/Muscle-BioAmp-Arduino-Firmware
 
 // Mistral Cat runs automatically and jumps when you flex your muscle!
 // Collect coins and avoid obstacles. Game gets harder over time.
@@ -14,33 +15,36 @@
 // Using only A0 analog pin (EXG pill fried compatibility)
 #define INPUT_PIN A0
 
-// Envelope buffer size for smoothing
-#define BUFFER_SIZE 32
+// CH1 status LED (using built-in LED on pin 13)
+#define CH1_STATUS_LED 13
 
-// EMG Threshold - lower = more sensitive
-// Start low and increase if getting false jumps
-#define EMG_THRESHOLD 5
+// Envelope buffer size
+// High value -> smooth but less responsive
+// Low value -> not smooth but responsive
+#define BUFFER_SIZE 64
 
-// Jump cooldown to prevent multiple jumps from one flex (milliseconds)
-#define JUMP_COOLDOWN 500
-
-// Circular buffer for envelope detection
+// Circular buffer and sum for envelope detection
 int circular_buffer[BUFFER_SIZE];
-int data_index = 0;
-int sum = 0;
+int data_index, sum;
+
+// Jump settings
+#define JUMP_THRESHOLD 50  // EMG envelope threshold to trigger jump
+#define JUMP_COOLDOWN 500   // Minimum time between jumps (milliseconds)
 
 // Jump state
-bool canJump = true;
 unsigned long lastJumpTime = 0;
+bool canJump = true;
 
 void setup() {
   // Initialize serial communication
   Serial.begin(BAUD_RATE);
+
+  // Initialize input pin
+  pinMode(INPUT_PIN, INPUT);
   
-  // Initialize circular buffer
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    circular_buffer[i] = 0;
-  }
+  // Initialize status LED
+  pinMode(CH1_STATUS_LED, OUTPUT);
+  digitalWrite(CH1_STATUS_LED, LOW);
   
   // Initialize LED bar pins (Muscle BioAmp Shield v0.3: pins 8-13)
   // Set to OUTPUT and LOW to prevent floating (which causes LEDs to flicker)
@@ -48,6 +52,13 @@ void setup() {
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
   }
+  
+  // Initialize circular buffer
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    circular_buffer[i] = 0;
+  }
+  data_index = 0;
+  sum = 0;
   
   Serial.println("Mistral Cat Obstacle Game - Ready!");
   Serial.println("Flex to jump!");
@@ -64,45 +75,41 @@ void loop() {
   static long timer = 0;
   timer -= interval;
 
-  // Sample at SAMPLE_RATE
+  // Sample and get envelope
   if (timer < 0) {
     timer += 1000000 / SAMPLE_RATE;
-
-    // Read raw EMG value from A0
+    
+    // Raw EMG value
     int sensor_value = analogRead(INPUT_PIN);
 
-    // Filter the EMG signal
+    // Filtered EMG signal
     int signal = EMGFilter(sensor_value);
 
-    // Get the envelope (smoothed absolute value)
+    // EMG envelope
     int envelope = getEnvelope(abs(signal));
-
+    
     // Check for jump
-    checkJump(envelope);
-
-    // Send current state: 1 if jumping, 0 if not
-    // Also send envelope for debugging
-    Serial.print(canJump ? "0" : "1");  // Inverted: 1 means currently in jump cooldown (jumping)
-    Serial.print(",");
-    Serial.println(envelope);
-  }
-}
-
-// Check if muscle contraction exceeds threshold for jump
-void checkJump(int envelope) {
-  unsigned long current_time = millis();
-  
-  // If envelope exceeds threshold and we can jump
-  if (envelope > EMG_THRESHOLD && canJump) {
-    // Trigger jump
-    canJump = false;
-    lastJumpTime = current_time;
-    Serial.println("JUMP!");  // Debug message
-  }
-  
-  // Check if cooldown period has passed
-  if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
-    canJump = true;
+    unsigned long current_time = millis();
+    if (envelope > JUMP_THRESHOLD && canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
+      // Trigger jump
+      Serial.println("1");  // Send jump signal
+      digitalWrite(CH1_STATUS_LED, HIGH);
+      lastJumpTime = current_time;
+      canJump = false;
+    } else {
+      // Not jumping
+      Serial.println("0");  // Send no-jump signal
+      digitalWrite(CH1_STATUS_LED, LOW);
+      
+      // Check if cooldown has passed
+      if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
+        canJump = true;
+      }
+    }
+    
+    // Also send envelope for debugging (commented out by default for cleaner serial)
+    // Serial.print(envelope);
+    // Serial.println();
   }
 }
 
@@ -119,12 +126,15 @@ int getEnvelope(int abs_emg) {
 // Band-Pass Butterworth IIR digital filter
 // Sampling rate: 500.0 Hz, frequency: [74.5, 149.5] Hz
 // Filter is order 4, implemented as second-order sections (biquads)
+// Reference:
+// https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
+// https://courses.ideate.cmu.edu/16-223/f2020/Arduino/FilterDemos/filter_gen.py
 float EMGFilter(float input) {
   float output = input;
   
   // First biquad section
   {
-    static float z1, z2;
+    static float z1, z2;  // filter section state
     float x = output - 0.05159732 * z1 - 0.36347401 * z2;
     output = 0.01856301 * x + 0.03712602 * z1 + 0.01856301 * z2;
     z2 = z1;
@@ -133,7 +143,7 @@ float EMGFilter(float input) {
   
   // Second biquad section
   {
-    static float z1, z2;
+    static float z1, z2;  // filter section state
     float x = output - -0.53945795 * z1 - 0.39764934 * z2;
     output = 1.00000000 * x + -2.00000000 * z1 + 1.00000000 * z2;
     z2 = z1;
@@ -142,7 +152,7 @@ float EMGFilter(float input) {
   
   // Third biquad section
   {
-    static float z1, z2;
+    static float z1, z2;  // filter section state
     float x = output - 0.47319594 * z1 - 0.70744137 * z2;
     output = 1.00000000 * x + 2.00000000 * z1 + 1.00000000 * z2;
     z2 = z1;
@@ -151,7 +161,7 @@ float EMGFilter(float input) {
   
   // Fourth biquad section
   {
-    static float z1, z2;
+    static float z1, z2;  // filter section state
     float x = output - -1.00211112 * z1 - 0.74520226 * z2;
     output = 1.00000000 * x + -2.00000000 * z1 + 1.00000000 * z2;
     z2 = z1;
