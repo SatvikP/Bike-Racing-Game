@@ -113,7 +113,7 @@ class SerialReader:
                     self.port = p
                     self.connected = True
                     print(f"Connected to {p}")
-                    time.sleep(2)  # Wait for Arduino to initialize
+                    time.sleep(3)  # Wait for Arduino to initialize
                     return True
                 except (serial.SerialException, OSError):
                     continue
@@ -129,7 +129,7 @@ class SerialReader:
             self.port = port_to_use
             self.connected = True
             print(f"Connected to {port_to_use}")
-            time.sleep(2)  # Wait for Arduino to initialize
+            time.sleep(3)  # Wait for Arduino to initialize
             return True
         except (serial.SerialException, OSError) as e:
             print(f"Failed to connect to {port_to_use}: {e}")
