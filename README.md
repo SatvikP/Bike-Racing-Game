@@ -1,27 +1,16 @@
-# Bike Racing Game - Single Channel EMG
+# Mistral Cat Obstacle Game
 
-A simple Arduino-based bike racing game controlled by muscle contractions (EMG). This version uses only the A0 analog input channel, making it compatible with setups where the EXG pill is not available.
+A fun EMG-controlled game where **Mistral Cat** automatically runs and jumps when you flex your muscle! Collect coins and avoid obstacles. The game gets harder over time.
 
-## Based On
+## Features
 
-This project is derived from the [Muscle-BioAmp-Arduino-Firmware](https://github.com/upsidedownlabs/DIY-Muscle-BioAmp-Shield) project by Upside Down Labs, specifically the Muscle Strength Game example.
-
-## How It Works
-
-1. The Arduino reads EMG signals from the A0 analog pin
-2. A band-pass filter isolates the EMG frequency range (74.5-149.5 Hz)
-3. An envelope detection algorithm smooths the signal
-4. The envelope amplitude controls the bike's speed:
-   - Stronger muscle contraction = higher speed
-   - Relaxed muscle = deceleration
-5. The LED bar graph (pins 8-13) shows your current power level
-6. Serial monitor displays real-time speed, distance, and envelope data
-
-## Files
-
-- `Bike-Racing-Game.ino` - Arduino sketch for the game logic
-- `bike_game_interface.py` - Python visual interface using Pygame
-- `requirements.txt` - Python dependencies
+- **Mistral Cat** as the player character (in official Mistral purple)
+- **Jump** by flexing your muscle (EMG signal triggers jump)
+- **Collect yellow coins** for points
+- **Avoid red obstacles** or it's game over
+- **Difficulty increases** over time (scrolling gets faster)
+- **Score tracking** - collect as many coins as you can
+- **Real-time EMG visualization** - see your muscle power
 
 ## Hardware Requirements
 
@@ -30,91 +19,102 @@ This project is derived from the [Muscle-BioAmp-Arduino-Firmware](https://github
 - Electrodes for muscle signal detection
 - Optional: LED bar graph on pins 8-13 for visual feedback
 
+## Files
+
+- `Obstacle-Game.ino` - Arduino sketch for EMG jump detection
+- `mistral_cat_game.py` - Python Pygame interface
+- `requirements.txt` - Python dependencies
+
 ## Setup
 
 ### Arduino Setup
 
-1. Upload the `Bike-Racing-Game.ino` sketch to your Arduino
+1. Upload the `Obstacle-Game.ino` sketch to your Arduino
 2. Open Serial Monitor at 115200 baud to verify it's working
 3. Attach electrodes to your muscle (typically forearm)
-4. Flex your muscle to see the speed and distance values
+4. Flex your muscle to test jumps
 
-### Visual Interface Setup
-
-For a full graphical experience, run the Python interface:
+### Python Interface Setup
 
 ```bash
+# Activate virtual environment (if using one)
+source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the game interface (auto-detects Arduino port)
-python bike_game_interface.py
+# Run the game (auto-detects Arduino port)
+python mistral_cat_game.py
 
 # Or specify the port manually
-python bike_game_interface.py COM3          # Windows
-python bike_game_interface.py /dev/cu.usbmodem14101  # macOS/Linux
+python mistral_cat_game.py COM3          # Windows
+python mistral_cat_game.py /dev/cu.usbmodem14101  # macOS/Linux
 ```
 
-The interface will:
-- Display a scrolling track with your bike
-- Show real-time speed (km/h) and distance (meters)
-- Visualize your muscle power with a green power bar
-- Show connection status in the bottom-left corner
+## How to Play
 
-**Controls:**
-- Press `ESC` to quit
-- Press `R` to reset distance
-
-## Tips
-
-- Use Serial Monitor first to calibrate `EMG_THRESHOLD` in the Arduino sketch
-- The interface auto-detects common Arduino ports, but you can specify it manually
-- For best results, ensure good electrode contact with your skin
+- **Flex your muscle** to make Mistral Cat jump
+- **Collect yellow coins** for points (score increases)
+- **Avoid red obstacles** by jumping over them
+- **Game over** if you hit an obstacle
+- **Press R** to restart after game over
+- **Press ESC** to quit
+- **Press SPACE** to test jumping without Arduino
 
 ## Game Mechanics
 
-- **Speed**: 0-100% based on muscle contraction strength
-- **Distance**: Accumulates as you ride (virtual meters)
-- **Acceleration**: Smooth response to muscle activity
-- **Deceleration**: Gradual slowdown when muscle is relaxed
+- The game auto-scrolls to the right
+- Mistral Cat runs automatically
+- Jump height and duration are fixed
+- Coins and obstacles spawn randomly
+- Game speed increases over time (gets harder!)
+- Score = number of coins collected
+
+## Calibration
+
+1. Open Serial Monitor to see your EMG envelope values
+2. Relax your muscle - note the baseline value
+3. Flex your muscle - note the maximum value
+4. Adjust `EMG_THRESHOLD` in `Obstacle-Game.ino` (default: 5)
+   - Lower = more sensitive (jumps on small contractions)
+   - Higher = less sensitive (needs stronger contractions)
+5. Adjust `JUMP_COOLDOWN` to change how often you can jump (default: 500ms)
 
 ## Customization
 
-Adjust these `#define` values at the top of the sketch:
+Edit these `#define` values in `Obstacle-Game.ino`:
 
-- `SAMPLE_RATE`: Sampling frequency (Hz)
-- `EMG_THRESHOLD`: Minimum envelope value to register muscle activity
-- `BUFFER_SIZE`: Envelope smoothing - larger = smoother but less responsive
-- `ACCELERATION_FACTOR`: How quickly the bike responds to muscle contraction
-- `DECELERATION_FACTOR`: How quickly the bike slows down
-- `MAX_SPEED`: Maximum speed percentage
-- `DISTANCE_PER_UPDATE`: Distance gained per game update at max speed
+- `EMG_THRESHOLD` - Minimum EMG envelope to trigger a jump
+- `JUMP_COOLDOWN` - Time between jumps (milliseconds)
+- `SAMPLE_RATE` - Sampling frequency (Hz)
+- `BUFFER_SIZE` - Envelope smoothing (larger = smoother)
 
-## Serial Output
+Edit these in `mistral_cat_game.py`:
 
-The game outputs data in this format:
-```
-Speed | Distance | Envelope
-25.5 | 12.3m | 45
-```
+- `BASE_SCROLL_SPEED` - Starting scroll speed
+- `SPEED_INCREASE_RATE` - How fast difficulty increases
+- `OBSTACLE_MIN_DISTANCE` / `OBSTACLE_MAX_DISTANCE` - Obstacle spacing
+- `COIN_MIN_DISTANCE` / `COIN_MAX_DISTANCE` - Coin spacing
+- `GRAVITY` - Jump physics
+- `JUMP_HEIGHT` - Jump height
 
-- **Speed**: Current speed as percentage (0-100)
-- **Distance**: Total distance traveled in meters
-- **Envelope**: Current EMG envelope value (for calibration)
+## Troubleshooting
 
-## Tips for Calibration
+### Serial connection issues
+- Close Arduino Serial Monitor (it locks the port)
+- Check the port name with `ls /dev/cu.*` (macOS) or check Device Manager (Windows)
+- Make sure the baud rate matches (115200)
 
-1. Open Serial Plotter to visualize the envelope signal
-2. Relax your muscle and note the baseline envelope value
-3. Flex your muscle strongly and note the maximum envelope value
-4. Adjust `EMG_THRESHOLD` to be slightly above your baseline
-5. Adjust `EMG_ENVELOPE_DIVIDER` to scale the LED bar appropriately
+### Cat not jumping
+- Check EMG envelope values in Serial Monitor
+- Lower `EMG_THRESHOLD` if values are too low
+- Ensure electrodes have good contact
+- Try flexing harder
 
-## Files
-
-- `Bike-Racing-Game.ino` - Main Arduino sketch
-- `README.md` - This file
+### Game too easy/hard
+- Adjust `BASE_SCROLL_SPEED` and `SPEED_INCREASE_RATE`
+- Change obstacle/coin spawn distances
 
 ## License
 
-This project inherits the open-source license from the original Muscle BioAmp Shield project. See the header in `Bike-Racing-Game.ino` for details.
+This project is derived from the [Muscle-BioAmp-Arduino-Firmware](https://github.com/upsidedownlabs/DIY-Muscle-BioAmp-Shield) project by Upside Down Labs.
