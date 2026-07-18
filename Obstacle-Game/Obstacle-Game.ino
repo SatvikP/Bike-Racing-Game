@@ -33,7 +33,7 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
 // Jump settings - EDGE-BASED DETECTION
-#define JUMP_THRESHOLD 40  // EMG envelope threshold to trigger jump (standard from reference)
+#define JUMP_THRESHOLD 10  // EMG envelope threshold to trigger jump (test low value)
 #define JUMP_COOLDOWN 500   // Minimum time between jumps (milliseconds)
 
 unsigned long lastJumpTime = 0;
