@@ -17,6 +17,12 @@ This project is derived from the [Muscle-BioAmp-Arduino-Firmware](https://github
 5. The LED bar graph (pins 8-13) shows your current power level
 6. Serial monitor displays real-time speed, distance, and envelope data
 
+## Files
+
+- `Bike-Racing-Game.ino` - Arduino sketch for the game logic
+- `bike_game_interface.py` - Python visual interface using Pygame
+- `requirements.txt` - Python dependencies
+
 ## Hardware Requirements
 
 - Arduino board (Uno, Nano, etc.)
@@ -26,10 +32,44 @@ This project is derived from the [Muscle-BioAmp-Arduino-Firmware](https://github
 
 ## Setup
 
+### Arduino Setup
+
 1. Upload the `Bike-Racing-Game.ino` sketch to your Arduino
-2. Open Serial Monitor at 115200 baud
+2. Open Serial Monitor at 115200 baud to verify it's working
 3. Attach electrodes to your muscle (typically forearm)
-4. Flex your muscle to accelerate the bike!
+4. Flex your muscle to see the speed and distance values
+
+### Visual Interface Setup
+
+For a full graphical experience, run the Python interface:
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the game interface (auto-detects Arduino port)
+python bike_game_interface.py
+
+# Or specify the port manually
+python bike_game_interface.py COM3          # Windows
+python bike_game_interface.py /dev/cu.usbmodem14101  # macOS/Linux
+```
+
+The interface will:
+- Display a scrolling track with your bike
+- Show real-time speed (km/h) and distance (meters)
+- Visualize your muscle power with a green power bar
+- Show connection status in the bottom-left corner
+
+**Controls:**
+- Press `ESC` to quit
+- Press `R` to reset distance
+
+## Tips
+
+- Use Serial Monitor first to calibrate `EMG_THRESHOLD` in the Arduino sketch
+- The interface auto-detects common Arduino ports, but you can specify it manually
+- For best results, ensure good electrode contact with your skin
 
 ## Game Mechanics
 
