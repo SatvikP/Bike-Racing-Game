@@ -18,6 +18,10 @@
 // CH1 status LED (using built-in LED on pin 13)
 #define CH1_STATUS_LED 13
 
+// LED bar pins (Muscle BioAmp Shield v0.3)
+int led_bar[] = { 8, 9, 10, 11, 12, 13 };
+int total_leds = sizeof(led_bar) / sizeof(led_bar[0]);
+
 // Envelope buffer size
 // High value -> smooth but less responsive
 // Low value -> not smooth but responsive
@@ -27,8 +31,12 @@
 int circular_buffer[BUFFER_SIZE];
 int data_index, sum;
 
+// LED bar scaling
+#define EMG_ENVELOPE_BASELINE 4
+#define EMG_ENVELOPE_DIVIDER 4
+
 // Jump settings
-#define JUMP_THRESHOLD 5  // EMG envelope threshold to trigger jump (lower = more sensitive)
+#define JUMP_THRESHOLD 50  // EMG envelope threshold to trigger jump
 #define JUMP_COOLDOWN 500   // Minimum time between jumps (milliseconds)
 
 // Jump state
@@ -44,13 +52,10 @@ void setup() {
   
   // Initialize status LED
   pinMode(CH1_STATUS_LED, OUTPUT);
-  digitalWrite(CH1_STATUS_LED, LOW);
   
-  // Initialize LED bar pins (Muscle BioAmp Shield v0.3: pins 8-13)
-  // Set to OUTPUT and LOW to prevent floating (which causes LEDs to flicker)
-  for (int i = 8; i <= 13; i++) {
-    pinMode(i, OUTPUT);
-    digitalWrite(i, LOW);
+  // Initialize all the LED bar pins
+  for (int i = 0; i < total_leds; i++) {
+    pinMode(led_bar[i], OUTPUT);
   }
   
   // Initialize circular buffer
@@ -88,11 +93,19 @@ void loop() {
     // EMG envelope
     int envelope = getEnvelope(abs(signal));
     
+    // Update LED bar graph to show muscle activity
+    for (int i = 0; i < total_leds; i++) {
+      if (i > (envelope / EMG_ENVELOPE_DIVIDER - EMG_ENVELOPE_BASELINE)) {
+        digitalWrite(led_bar[i], LOW);
+      } else {
+        digitalWrite(led_bar[i], HIGH);
+      }
+    }
+    
     // Check if cooldown has passed (allows new jump)
     unsigned long current_time = millis();
     if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
       canJump = true;
-      digitalWrite(CH1_STATUS_LED, LOW);
     }
     
     // Check for jump - send 1 only when threshold exceeded AND can jump
@@ -105,11 +118,8 @@ void loop() {
     } else {
       // Not jumping
       Serial.println("0");  // Send no-jump signal
+      digitalWrite(CH1_STATUS_LED, LOW);
     }
-    
-    // Also send envelope for debugging (commented out by default for cleaner serial)
-    // Serial.print(envelope);
-    // Serial.println();
   }
 }
 
