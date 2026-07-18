@@ -1,9 +1,9 @@
 // Mistral Cat Obstacle Game - Single Channel EMG (A0 only)
 // Based on BioAmp EXG Pill EMGScrolling example
 // https://github.com/upsidedownlabs/BioAmp-EXG-Pill
-// https://github.com/upsidedownlabs/Muscle-BioAmp-Arduino-Firmware
 
 // Mistral Cat runs automatically and jumps when you flex your muscle!
+// Press button SW1 (pin 4) to start/stop measuring signals.
 // Collect coins and avoid obstacles. Game gets harder over time.
 
 // Samples per second
@@ -12,24 +12,34 @@
 // Make sure to set the same baud rate on your Serial Monitor/Plotter
 #define BAUD_RATE 115200
 
-// Using only A0 analog pin (EXG pill fried compatibility)
+// Change if your sensor is connected to a different analog pin
 #define INPUT_PIN A0
 
-// CH1 status LED (using built-in LED on pin 13)
-#define CH1_STATUS_LED 13
+// Button to start the serial transaction (SW1)
+const int buttonPin = 4;
 
-// LED bar pins (Muscle BioAmp Shield v0.3)
-int led_bar[] = { 8, 9, 10, 11, 12, 13 };
-int total_leds = sizeof(led_bar) / sizeof(led_bar[0]);
+// LED to show serial transaction status
+// Note: Using pin 7 to avoid conflict with LED bar (pins 8-13)
+const int ledPin = 7;
 
 // Envelope buffer size
 // High value -> smooth but less responsive
 // Low value -> not smooth but responsive
 #define BUFFER_SIZE 64
 
-// Circular buffer and sum for envelope detection
 int circular_buffer[BUFFER_SIZE];
 int data_index, sum;
+
+// Device working status variables
+int ledState = LOW;
+int buttonState;
+int lastButtonState = LOW;
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
+
+// LED bar pins (Muscle BioAmp Shield v0.3)
+int led_bar[] = { 8, 9, 10, 11, 12, 13 };
+int total_leds = sizeof(led_bar) / sizeof(led_bar[0]);
 
 // LED bar scaling
 #define EMG_ENVELOPE_BASELINE 4
@@ -50,8 +60,10 @@ void setup() {
   // Initialize input pin
   pinMode(INPUT_PIN, INPUT);
   
-  // Initialize status LED
-  pinMode(CH1_STATUS_LED, OUTPUT);
+  // Initialize button and status LED (from EMGScrolling reference)
+  pinMode(buttonPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, ledState);
   
   // Initialize all the LED bar pins
   for (int i = 0; i < total_leds; i++) {
@@ -66,10 +78,31 @@ void setup() {
   sum = 0;
   
   Serial.println("Mistral Cat Obstacle Game - Ready!");
-  Serial.println("Flex to jump!");
+  Serial.println("Press SW1 (pin 4) to start measuring signals.");
 }
 
 void loop() {
+  // Button debounce logic (from EMGScrolling reference)
+  int reading = digitalRead(buttonPin);
+  if (reading != lastButtonState) {
+    // reset the debouncing timer
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    // if the button state has changed:
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      // only toggle the LED if the new button state is HIGH
+      if (buttonState == HIGH) {
+        ledState = !ledState;
+      }
+    }
+  }
+  digitalWrite(ledPin, ledState);
+  lastButtonState = reading;
+
   // Calculate elapsed time
   static unsigned long past = 0;
   unsigned long present = micros();
@@ -102,23 +135,28 @@ void loop() {
       }
     }
     
-    // Check if cooldown has passed (allows new jump)
-    unsigned long current_time = millis();
-    if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
-      canJump = true;
-    }
-    
-    // Check for jump - send 1 only when threshold exceeded AND can jump
-    if (envelope > JUMP_THRESHOLD && canJump) {
-      // Trigger jump
-      Serial.println("1");  // Send jump signal
-      digitalWrite(CH1_STATUS_LED, HIGH);
-      lastJumpTime = current_time;
-      canJump = false;
-    } else {
-      // Not jumping
-      Serial.println("0");  // Send no-jump signal
-      digitalWrite(CH1_STATUS_LED, LOW);
+    // Only send serial data when ledState is HIGH (button pressed)
+    if (ledState == HIGH) {
+      // Check if cooldown has passed (allows new jump)
+      unsigned long current_time = millis();
+      if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
+        canJump = true;
+      }
+      
+      // Check for jump - send jump signal when threshold exceeded AND can jump
+      if (envelope > JUMP_THRESHOLD && canJump) {
+        // Trigger jump
+        Serial.println("1");  // Send jump signal
+        lastJumpTime = current_time;
+        canJump = false;
+      } else {
+        // Not jumping
+        Serial.println("0");  // Send no-jump signal
+      }
+      
+      // Also output envelope for calibration (comment out if not needed)
+      // Serial.print("ENVELOPE:");
+      // Serial.println(envelope);
     }
   }
 }
@@ -133,9 +171,9 @@ int getEnvelope(int abs_emg) {
   return (sum / BUFFER_SIZE) * 2;
 }
 
-// Band-Pass Butterworth IIR digital filter
-// Sampling rate: 500.0 Hz, frequency: [74.5, 149.5] Hz
-// Filter is order 4, implemented as second-order sections (biquads)
+// Band-Pass Butterworth IIR digital filter, generated using filter_gen.py.
+// Sampling rate: 500.0 Hz, frequency: [74.5, 149.5] Hz.
+// Filter is order 4, implemented as second-order sections (biquads).
 // Reference:
 // https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
 // https://courses.ideate.cmu.edu/16-223/f2020/Arduino/FilterDemos/filter_gen.py
