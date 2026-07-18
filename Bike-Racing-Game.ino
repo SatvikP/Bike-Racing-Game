@@ -22,7 +22,7 @@
 
 // EMG Threshold - adjust based on your baseline muscle activity
 // Check by plotting EMG envelope on Serial Plotter
-#define EMG_THRESHOLD 20
+#define EMG_THRESHOLD 5
 
 // EMG Envelope baseline (minimum value without flexing)
 #define EMG_ENVELOPE_BASELINE 4
@@ -139,13 +139,9 @@ void updateBikePhysics(int envelope) {
     last_update = current_time;
     
     // Map envelope to target speed (0-100%)
-    float target_speed = map(envelope, EMG_THRESHOLD, 500, 0, MAX_SPEED);
+    // Start mapping from 0 to allow any muscle activity to register
+    float target_speed = map(envelope, 0, 500, 0, MAX_SPEED);
     target_speed = constrain(target_speed, 0, MAX_SPEED);
-    
-    // If envelope is below threshold, target speed is 0
-    if (envelope < EMG_THRESHOLD) {
-      target_speed = 0;
-    }
     
     // Smooth acceleration/deceleration
     if (target_speed > bike_speed) {
