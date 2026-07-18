@@ -141,6 +141,9 @@ class SerialReader:
                 if not line:
                     continue
                 
+                # Debug: print everything we receive
+                print(f"SERIAL: '{line}'", file=sys.stderr)
+                
                 # Skip debug messages like "Ready!"
                 if line.startswith("Mistral") or line.startswith("Flex") or line.startswith("Ready"):
                     continue
@@ -148,11 +151,15 @@ class SerialReader:
                 # Arduino sends "1" for jump, "0" for no jump
                 if line == "1":
                     self.jumping = True
+                    print(f"JUMP DETECTED", file=sys.stderr)
                     return True
                 elif line == "0":
                     self.jumping = False
                     return True
-        except (serial.SerialException, OSError):
+                else:
+                    print(f"UNKNOWN: '{line}'", file=sys.stderr)
+        except (serial.SerialException, OSError) as e:
+            print(f"SERIAL ERROR: {e}", file=sys.stderr)
             self.connected = False
         
         return False
