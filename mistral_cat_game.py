@@ -474,6 +474,9 @@ class MistralCatGame:
     
     def render(self, screen, connected):
         """Render the game."""
+        # Clear screen
+        screen.fill(BLACK)
+        
         # Draw sky
         self.draw_sky(screen)
         
@@ -496,6 +499,9 @@ class MistralCatGame:
         
         # Draw connection status
         self.draw_connection_status(screen, connected)
+        
+        # Update display
+        pygame.display.flip()
     
     def reset(self):
         """Reset the game."""
