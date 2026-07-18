@@ -141,6 +141,9 @@ class SerialReader:
         if not line:
             return None
         
+        # Debug: print raw line
+        print(f"DEBUG: Raw line: {line}", file=sys.stderr)
+        
         # Try to match the expected format
         pattern = r'([\d.]+)\s*\|\s*([\d.]+)m\s*\|\s*(\d+)'
         match = re.match(pattern, line)
@@ -150,6 +153,7 @@ class SerialReader:
                 self.speed = float(match.group(1))
                 self.distance = float(match.group(2))
                 self.envelope = int(match.group(3))
+                print(f"DEBUG: Parsed - speed={self.speed}, distance={self.distance}, envelope={self.envelope}", file=sys.stderr)
                 return True
             except ValueError:
                 return False
@@ -161,6 +165,7 @@ class SerialReader:
                 self.speed = float(parts[0].strip())
                 self.distance = float(parts[1].strip().replace('m', '').strip())
                 self.envelope = int(parts[2].strip())
+                print(f"DEBUG: Parsed (fallback) - speed={self.speed}, distance={self.distance}, envelope={self.envelope}", file=sys.stderr)
                 return True
             except ValueError:
                 return False
@@ -177,7 +182,8 @@ class SerialReader:
                 line = self.serial_conn.readline().decode('utf-8', errors='ignore')
                 if line and self.parse_line(line):
                     return True
-        except (serial.SerialException, OSError):
+        except (serial.SerialException, OSError) as e:
+            print(f"DEBUG: Serial error: {e}", file=sys.stderr)
             self.connected = False
         
         return False
@@ -241,6 +247,9 @@ class BikeRacingGame:
         self.distance = distance
         self.envelope = envelope
         
+        # Debug
+        print(f"DEBUG: Game update - speed={speed}, distance={distance}, envelope={envelope}", file=sys.stderr)
+        
         # Track max envelope for scaling
         if envelope > self.max_envelope:
             self.max_envelope = envelope
@@ -250,6 +259,9 @@ class BikeRacingGame:
         speed_factor = speed / self.max_speed if self.max_speed > 0 else 0
         self.scroll_speed = speed_factor * 5
         self.scroll_offset += self.scroll_speed
+        
+        # Debug scroll
+        print(f"DEBUG: scroll_speed={self.scroll_speed}, scroll_offset={self.scroll_offset}", file=sys.stderr)
         
         # Wrap scroll offset
         if self.scroll_offset > SCREEN_WIDTH:
@@ -450,8 +462,11 @@ def main():
             # Read serial data
             if time.time() - last_read_time > 0.05:  # Throttle reads
                 if serial_reader.read_data():
+                    print(f"DEBUG: Data received, updating game", file=sys.stderr)
                     game.update(serial_reader.speed, serial_reader.distance, serial_reader.envelope)
                     last_read_time = time.time()
+                else:
+                    print(f"DEBUG: No data received (in_waiting={serial_reader.serial_conn.in_waiting if serial_reader.serial_conn else 0})", file=sys.stderr)
             
             # Update bike position
             # Bike sways side to side based on speed
