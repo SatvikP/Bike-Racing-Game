@@ -28,7 +28,7 @@ int circular_buffer[BUFFER_SIZE];
 int data_index, sum;
 
 // Jump settings
-#define JUMP_THRESHOLD 50  // EMG envelope threshold to trigger jump
+#define JUMP_THRESHOLD 5  // EMG envelope threshold to trigger jump (lower = more sensitive)
 #define JUMP_COOLDOWN 500   // Minimum time between jumps (milliseconds)
 
 // Jump state
@@ -88,9 +88,15 @@ void loop() {
     // EMG envelope
     int envelope = getEnvelope(abs(signal));
     
-    // Check for jump
+    // Check if cooldown has passed (allows new jump)
     unsigned long current_time = millis();
-    if (envelope > JUMP_THRESHOLD && canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
+    if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
+      canJump = true;
+      digitalWrite(CH1_STATUS_LED, LOW);
+    }
+    
+    // Check for jump - send 1 only when threshold exceeded AND can jump
+    if (envelope > JUMP_THRESHOLD && canJump) {
       // Trigger jump
       Serial.println("1");  // Send jump signal
       digitalWrite(CH1_STATUS_LED, HIGH);
@@ -99,12 +105,6 @@ void loop() {
     } else {
       // Not jumping
       Serial.println("0");  // Send no-jump signal
-      digitalWrite(CH1_STATUS_LED, LOW);
-      
-      // Check if cooldown has passed
-      if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
-        canJump = true;
-      }
     }
     
     // Also send envelope for debugging (commented out by default for cleaner serial)
