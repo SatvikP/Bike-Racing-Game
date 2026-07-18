@@ -42,6 +42,13 @@ void setup() {
     circular_buffer[i] = 0;
   }
   
+  // Initialize LED bar pins (Muscle BioAmp Shield v0.3: pins 8-13)
+  // Set to OUTPUT and LOW to prevent floating (which causes LEDs to flicker)
+  for (int i = 8; i <= 13; i++) {
+    pinMode(i, OUTPUT);
+    digitalWrite(i, LOW);
+  }
+  
   Serial.println("Mistral Cat Obstacle Game - Ready!");
   Serial.println("Flex to jump!");
 }
