@@ -32,12 +32,13 @@ int lastButtonState = LOW;
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
-// Jump settings
+// Jump settings - EDGE-BASED DETECTION
 #define JUMP_THRESHOLD 50  // EMG envelope threshold to trigger jump
 #define JUMP_COOLDOWN 500   // Minimum time between jumps (milliseconds)
 
 unsigned long lastJumpTime = 0;
-bool canJump = true;
+bool jumpTriggered = false;  // Edge detection: jump currently triggered
+bool lastStateAboveThreshold = false;  // Previous state for edge detection
 
 void setup() {
   // Initialize serial communication
@@ -102,20 +103,31 @@ void loop() {
 
     // Only send serial data when ledState is HIGH (button pressed)
     if (ledState == HIGH) {
-      // Check if cooldown has passed
+      bool currentAboveThreshold = (envelope > JUMP_THRESHOLD);
       unsigned long current_time = millis();
-      if (!canJump && (current_time - lastJumpTime >= JUMP_COOLDOWN)) {
-        canJump = true;
+
+      // EDGE DETECTION: Rising edge (spike start) triggers jump
+      if (currentAboveThreshold && !lastStateAboveThreshold && !jumpTriggered) {
+        // Check cooldown
+        if (current_time - lastJumpTime >= JUMP_COOLDOWN) {
+          Serial.println("1");  // SINGLE PULSE: Jump triggered
+          jumpTriggered = true;
+          lastJumpTime = current_time;
+        }
       }
 
-      // Check for jump - send jump signal when threshold exceeded AND can jump
-      if (envelope > JUMP_THRESHOLD && canJump) {
-        Serial.println("1");  // Jump signal
-        lastJumpTime = current_time;
-        canJump = false;
-      } else {
-        Serial.println("0");  // No jump signal
+      // Reset when signal drops below threshold (flex ended)
+      if (!currentAboveThreshold && lastStateAboveThreshold) {
+        jumpTriggered = false;
       }
+
+      // Always send "0" when not actively triggering a jump
+      if (!jumpTriggered) {
+        Serial.println("0");
+      }
+
+      // Update last state for next iteration
+      lastStateAboveThreshold = currentAboveThreshold;
     }
   }
 }
